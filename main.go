@@ -8,6 +8,8 @@ import (
 	"os"
 	"os/signal"
 
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/jaeger"
 	"go.opentelemetry.io/otel/propagation"
@@ -40,7 +42,22 @@ func startgRPC() {
 		log.Fatalf("failed to listen: %v", err)
 	}
 
-	grpcServer := grpc.NewServer()
+	exp, err := jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint("http://localhost:14268/api/traces")))
+	if err != nil {
+		//return nil, err
+	}
+	tp := sdktrace.NewTracerProvider(
+		// Always be sure to batch in production.
+		sdktrace.WithBatcher(exp),
+		// Record information about this application in an Resource.
+		sdktrace.WithResource(resource.NewWithAttributes(
+			semconv.SchemaURL,
+			semconv.ServiceNameKey.String("grpc"),
+			attribute.String("environment", "development"),
+		)),
+	)
+
+	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(otelgrpc.UnaryServerInterceptor(otelgrpc.WithTracerProvider(tp))))
 	proto.RegisterCountServiceServer(grpcServer, tgrpc.NewService())
 	if err := grpcServer.Serve(lis); err != nil {
 		panic(err)
@@ -77,7 +94,7 @@ func tracerProvider(url string) (*sdktrace.TracerProvider, error) {
 		// Record information about this application in an Resource.
 		sdktrace.WithResource(resource.NewWithAttributes(
 			semconv.SchemaURL,
-			semconv.ServiceNameKey.String("Counter"),
+			semconv.ServiceNameKey.String("http"),
 			attribute.String("environment", "development"),
 		)),
 	)

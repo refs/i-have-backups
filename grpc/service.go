@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/refs/tpg/grpc/proto"
 )
 
@@ -27,6 +30,11 @@ type S struct {
 
 // Add increases a named counter by one
 func (s S) Add(ctx context.Context, request *proto.AddRequest) (*proto.AddResponse, error) {
+	span := trace.SpanFromContext(ctx)
+
+	span.AddEvent("counter++", trace.WithAttributes(attribute.String("foo", "bar")))
+	defer span.End()
+
 	c, ok := s.counters[request.CounterName]
 	if !ok {
 		return nil, fmt.Errorf("wrong counter")
