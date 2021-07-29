@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package proto;
+option go_package = ".;proto";
+
+service CountService {
+  rpc Add(AddRequest) returns (AddResponse);
+}
+
+message AddRequest {
+  string counterName = 1;
+  int32 quantity = 2;
+}
+
+message AddResponse {
+  int32 total = 1;
+}
